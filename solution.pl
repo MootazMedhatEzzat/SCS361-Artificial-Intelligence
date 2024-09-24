@@ -156,5 +156,4 @@ people_you_may_know_indirect(X, Acc, Y) :-
     is_friend(W, Y),                % Find a friend Y of W.
     indirect_applicable(X, Acc, Y).  % Ensure Y is applicable for suggestion.
 
-% Additional indirect connection handling.
 people_you_may_know_indirect(X, Y) :- people_you_may_know_indirect(X, [], Y).
