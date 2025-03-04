@@ -1,0 +1,300 @@
+ =========================================================================================
+|> This file serves as documentation for how each predicate behaves with example queries <| 
+ =========================================================================================
+
+ =========================================
+| TASK 1: Symmetric Friend Relation       |
+ =========================================
+
+Example Query: is_friend(samy, ahmed).
+Execution Flow:
+ 1. Check friend(samy, ahmed) -> fails.
+ 2. Check friend(ahmed, samy) via second clause -> succeeds.
+
+ =========================================
+| TASK 2: Friend List                     |
+ =========================================
+
+Example Query: friendList(ahmed, Friends).
+Execution Flow:
+ 1. Start with Acc = []
+ 2. Find Y=samy  (not in []),     add to Acc = [samy]
+ 3. Find Y=fouad (not in [samy]), add to Acc = [fouad, samy]
+ 4. No more friends -> return Friends = [fouad, samy]
+
+ =========================================
+| TASK 3: Friend Count (Tail Recursion)   |
+ =========================================
+
+Example Query: friendListCount(ahmed, N).
+Execution Flow for countTail([samy, fouad], 0, N):
+ 1. countTail([samy,fouad], 0, N)
+ 2. countTail([fouad], 1, N)
+ 3. countTail([], 2, N) => N = 2
+
+ =========================================
+| TASK 4: Suggest Friends with Mutuals    |
+ =========================================
+
+Example Query: peopleYouMayKnow(ahmed, Z).
+Expected Results:
+ Z = mohammed ;
+ Z = said ;
+ Z = omar ;
+ Z = abdullah ;
+ Z = abdullah ;
+ false.
+
+Execution Flow:
+1. First clause activation:
+   - Find Y=samy (friend of ahmed)
+   - Find Z=mohammed (friend of samy)
+   - Verify ahmed ≠ mohammed & \+ friendship → success
+   → Z = mohammed
+
+2. Backtrack to find more Zs from Y=samy:
+   - Next Z=said → valid suggestion
+   → Z = said
+
+3. Continue with Y=samy:
+   - Z=omar → valid
+   → Z = omar
+
+4. Continue with Y=samy:
+   - Z=abdullah → valid (ahmed not friends with abdullah)
+   → Z = abdullah
+
+5. Backtrack to find new Y:
+   - Next Y=fouad (friend of ahmed)
+   - Find Z=abdullah (friend of fouad)
+   - Verify conditions → valid
+   → Z = abdullah (second suggestion)
+
+6. No more friends → false
+
+ =========================================
+| TASK 5: N Mutual Friends Suggestion     |
+ =========================================
+
+Example Query: peopleYouMayKnow(ahmed, 2, Z).
+Execution Flow:
+ 1. Candidates from Task 4 filtered by mutual count ≥2.
+ 2. Z=abdullah has 2 mutual friends (samy, fouad) → valid.
+ 3. Cut ensures only unique suggestion Z=abdullah.
+
+Full Execution Flow:
+--------------------
+Step 1: Generate candidates from Task 4 (peopleYouMayKnow/2)
+-------------------------------------------------------------------------------
+1.1 First candidate: Z = mohammed
+    - Mutual friend path: ahmed -> samy -> mohammed
+    - Check mutual count: countMutuals(ahmed, mohammed, Count)
+
+    countMutuals Execution:
+    ----------------------
+    a) Find Y where is_friend(ahmed, Y) and is_friend(Y, mohammed)
+       - Y = samy (only valid mutual friend)
+    b) Verify samy not in Seen list (initial empty list)
+    c) Acc increments to 1
+    d) No more mutual friends → final Count = 1
+    - 1 ≱ 2 → reject candidate
+
+1.2 Second candidate: Z = said
+    - Mutual friend path: ahmed -> samy -> said
+    - countMutuals(ahmed, said, 1) → same logic as above → reject
+
+1.3 Third candidate: Z = omar
+    - Mutual friend path: ahmed -> samy -> omar
+    - countMutuals(ahmed, omar, 1) → reject
+
+-------------------------------------------------------------------------------
+Step 2: Process first abdullah suggestion (via samy)
+-------------------------------------------------------------------------------
+1.4 Fourth candidate: Z = abdullah (via samy connection)
+    - Check mutual count: countMutuals(ahmed, abdullah, Count)
+    
+    countMutuals Execution Details:
+    ------------------------------
+    Initial State:
+    - Seen = [], Acc = 0
+    
+    Recursive Call 1:
+    - Find Y = samy (ahmed -> samy, samy -> abdullah)
+    - samy ∉ Seen → valid
+    - NewAcc = 0 + 1 = 1
+    - Seen updated to [samy]
+    - Recursive call: countMutualsHelper(ahmed, abdullah, [samy], 1, Count)
+    
+    Recursive Call 2:
+    - Find Y = fouad (ahmed -> fouad, fouad -> abdullah)
+    - fouad ∉ [samy] → valid
+    - NewAcc = 1 + 1 = 2
+    - Seen updated to [fouad, samy]
+    - Recursive call: countMutualsHelper(ahmed, abdullah, [fouad,samy], 2, Count)
+    
+    Recursive Call 3:
+    - No more Ys satisfy:
+      is_friend(ahmed, Y) ∧ is_friend(Y, abdullah) ∧ Y ∉ [fouad,samy]
+    - Base case reached: Count = 2
+    - Mutual friends: samy and fouad
+    
+    - 2 ≥ 2 → success
+    - ! Cut applied → stops backtracking for other candidates
+
+Final Result: Z = abdullah
+
+================================================================================
+
+Key Observations:
+1. Mutual Friend Discovery:
+   - Systematically finds **all** shared friends between X and Z using:
+     - Bidirectional friendship checks (is_friend/2)
+     - Seen list to prevent double-counting
+     - Tail recursion for efficient counting
+
+2. Cut Operator Behavior:
+   - After finding the first valid suggestion (abdullah), the cut:
+     - Discards other candidates from Task 4 (e.g., second abdullah via fouad)
+     - Eliminates duplicate suggestions
+     - Optimizes performance by halting unnecessary searches
+
+3. Data Relationships:
+   ahmed                                   abdullah
+    │                                          │
+    └───────friend────────samy─────friend──────┘
+    │                                          │
+    └───────friend───────fouad─────friend──────┘
+
+   Two distinct mutual connection paths validate abdullah as the only suggestion.
+ 
+================================================================================
+
+Execution Trace for countMutuals(ahmed, abdullah, Count):
+1. Initial Call: countMutualsHelper(ahmed, abdullah, [], 0, Count)
+   - Finds Y=samy (is_friend(ahmed,samy), is_friend(samy,abdullah))
+   - samy ∉ [] → proceed
+   - NewAcc = 1, Seen = [samy]
+   - Recursion: countMutualsHelper(ahmed, abdullah, [samy], 1, Count)
+
+2. Recursive Call 1: 
+   - Finds Y=fouad (is_friend(ahmed,fouad), is_friend(fouad,abdullah))
+   - fouad ∉ [samy] → proceed
+   - NewAcc = 2, Seen = [fouad,samy]
+   - Recursion: countMutualsHelper(ahmed, abdullah, [fouad,samy], 2, Count)
+
+3. Recursive Call 2:
+   - Tries to find Y where:
+     - is_friend(ahmed,Y) → remaining options: samy, fouad (already in Seen)
+     - All possibilities exhausted → trigger base case
+   - Unify Count = 2
+
+ =========================================
+| TASK 6: Unique Suggested Friends List   |
+ =========================================
+
+Example Query: peopleYouMayKnowList(ahmed, SuggestedFriends).
+Execution Flow:
+ 1. Collect all unique suggestions from Task 4.
+ 2. Returns [abdullah, omar, said, mohammed].
+
+================================================================================
+
+Example Query: collectUnique(ahmed, [], SuggestedFriends).
+Execution Flow:
+ execution flow matches friendList but uses peopleYouMayKnow/2.
+
+ =========================================
+|  BONUS: Indirect Friend Suggestions      |
+ =========================================
+
+Example Query: peopleYouMayKnow_indirect(ahmed, W).
+Expected Results:
+ W = khaled ;
+ W = ibrahim ;
+ W = khaled ;
+ W = ibrahim ;
+ false.
+Full Execution Flow:
+-------------------------------------------------------------------------------
+Path 1: ahmed -> samy -> abdullah -> khaled
+-------------------------------------------------------------------------------
+1.1 Find Y = samy (friend of ahmed)
+1.2 Find Z = abdullah (friend of samy)
+1.3 Find W = khaled (friend of abdullah)
+    - Verify:
+      a) ahmed ≠ khaled ✔️
+      b) \+ is_friend(ahmed, khaled) ✔️
+      c) \+ hasMutual(ahmed, khaled):
+         - Check for any Y where is_friend(ahmed,Y) ∧ is_friend(Y,khaled)
+         - Potential Ys:
+           * samy → is_friend(samy, khaled)? ❌ (samy's friends: mohammed, said, omar, abdullah)
+           * fouad → is_friend(fouad, khaled)? ❌ (fouad's friend: abdullah)
+         → No mutuals ✔️
+    → W = khaled (FIRST SOLUTION)
+
+-------------------------------------------------------------------------------
+Path 2: ahmed -> samy -> abdullah -> ibrahim
+-------------------------------------------------------------------------------
+2.1 Same Y=samy, Z=abdullah
+2.2 Find W = ibrahim (friend of abdullah)
+    - Verify:
+      a) ahmed ≠ ibrahim ✔️
+      b) \+ is_friend(ahmed, ibrahim) ✔️
+      c) \+ hasMutual(ahmed, ibrahim):
+         - Similar check as khaled → no mutuals ✔️
+    → W = ibrahim (SECOND SOLUTION)
+
+-------------------------------------------------------------------------------
+Path 3: ahmed -> fouad -> abdullah -> khaled
+-------------------------------------------------------------------------------
+3.1 Find Y = fouad (friend of ahmed)
+3.2 Find Z = abdullah (friend of fouad)
+3.3 Find W = khaled (friend of abdullah)
+    - Verify same conditions as Path 1 → valid
+    → W = khaled (THIRD SOLUTION - duplicate)
+
+-------------------------------------------------------------------------------
+Path 4: ahmed -> fouad -> abdullah -> ibrahim
+-------------------------------------------------------------------------------
+4.1 Same Y=fouad, Z=abdullah
+4.2 Find W = ibrahim → conditions valid
+    → W = ibrahim (FOURTH SOLUTION - duplicate)
+
+-------------------------------------------------------------------------------
+Path 5: Other potential paths (all rejected)
+-------------------------------------------------------------------------------
+5.1 ahmed -> samy -> omar → X (omar has no friends in data)
+5.2 ahmed -> samy -> mohammed → X (no friends listed for mohammed)
+5.3 ahmed -> fouad → Only Z=abdullah available
+
+================================================================================
+
+Key Relationship Diagram:
+
+ ahmed's network:               abdullah's network:
+    ┌─────samy────┐                  ┌────khaled
+    │      │      │                  │
+ ahmed─┬─fouad    │                  │
+       │          ↓                  ↓
+       │     abdullah───────ibrahim
+       │          │
+       └──────────┘ (friend connection via samy & fouad)
+
+ Why duplicates occur:
+ - khaled/ibrahim appear twice because they can be reached via:
+   1. ahmed -> samy -> abdullah -> W
+   2. ahmed -> fouad -> abdullah -> W
+ - No cut operator → Prolog shows all valid paths
+
+================================================================================
+
+Execution Trace for hasMutual(ahmed, khaled):
+1. Check Y=samy:
+   - is_friend(ahmed, samy) ✔️
+   - is_friend(samy, khaled)? ❌ (samy's friends: mohammed, said, omar, abdullah)
+
+2. Check Y=fouad:
+   - is_friend(ahmed, fouad) ✔️
+   - is_friend(fouad, khaled)? ❌ (fouad's friend: abdullah)
+
+→ No mutual friends → condition satisfied
