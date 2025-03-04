@@ -28,132 +28,126 @@ friend(zainab, rokaya).
 friend(zainab, eman).
 friend(eman, laila).
 
-% This predicate defines the symmetric friendship relation.
+%=========================================%
+% TASK 1: Symmetric Friend Relation       %
+%=========================================%
+% This predicate checks friendship in both directions.
 % If X is a friend of Y, then Y is also a friend of X.
-is_friend(X, Y) :-
-    friend(X, Y).  % Checks if X is friends with Y in the knowledge base.
-is_friend(X, Y) :-
-    friend(Y, X).  % Also checks if Y is friends with X, making the relation bidirectional.
+is_friend(X, Y) :- friend(X, Y).  % Checks if X is a friend of Y in the knowledge base.
+is_friend(X, Y) :- friend(Y, X).  % Also checks if Y is a friend of X, making the relation bidirectionals.
 
-% Custom member function to check if X is in the list.
-% my_member(X, [X | _]) succeeds if X is the head of the list.
-my_member(X, [X | _]) :- !.  % The cut operator (!) prevents further backtracking once X is found.
-% If X is not the head, we recursively check the rest of the list (Ys).
-my_member(X, [_ | Ys]) :-
-    my_member(X, Ys).
+%=========================================%
+% TASK 2: Friend List                     %
+%=========================================%
+% This predicate generates a list of all unique friends for a given person X using an accumulator (Acc).
+% - Uses an accumulator (Acc) to track friends and ensure uniqueness.
+% - Clause order and cuts ensure a single solution with the full list.
+friendList(X, Friends) :- friendListHelper(X, [], Friends).  % Start with empty accumulator
 
-% Generates a list of friends for a given person X using an accumulator (Acc).
-% friend_list(X, Acc, Xs) is true if Xs is the list of friends of X.
-friend_list(X, Acc, Xs) :-
+% Recursive helper predicate:
+% - Recursive clause is first, so Prolog prioritizes finding friends over returning results.
+% - Aggressively accumulates unique friends into Acc until no more are found.
+friendListHelper(X, Acc, Friends) :-
     is_friend(X, Y),        % Find a friend Y of X.
-    \+ my_member(Y, Acc),   % Ensure Y is not already in the accumulator to avoid duplicates.
-    !,                      % Prevent further attempts to find Y again.
-    friend_list(X, [Y | Acc], Xs).  % Recursively build the friend list.
-friend_list(_, Acc, Acc).  % Base case: When no more friends are found, return the accumulator.
-% This is the public version of the predicate that initializes with an empty accumulator.
-friend_list(X, Xs) :- friend_list(X, [], Xs).
+    \+ member(Y, Acc),      % Check if Y is NOT in the accumulator to avoid duplicates.
+    !,                      % Cut: Prevent backtracking to keep Y unique (Prevent further attempts to find Y again).
+    friendListHelper(X, [Y | Acc], Friends).  % Recurse with the updated list.
 
-% Counts the number of elements in a list.
-% count([], Acc, Acc) succeeds when the list is empty, returning the accumulated count.
-count([], Acc, Acc).  % Base case: When the list is empty, return the accumulator.
-% For each element, increment the accumulator and continue counting.
-count([_ | Xs], Acc, N) :-
-    Accp is Acc + 1,   % Accumulate the count.
-    count(Xs, Accp, N).
-% Public version of the count predicate that starts with 0.
-count(Xs, N) :- count(Xs, 0, N).
+% Base case:
+% - Only reached when no more friends can be found (due to cut in recursive clause).
+% - Unifies the final accumulated list (Friends) with the result.
+friendListHelper(_, Friends, Friends).
 
-% Counts the number of friends for a given person.
-friend_list_count(X, N) :-
-    friend_list(X, Ys),   % Get the friend list.
-    count(Ys, Np),        % Count the number of friends.
-    N is Np.              % Return the final count.
+% This predicate checks if an element is a member of a list. Checks if X is in the list
+member(X, [X | _]) :- !.  % Succeeds if X is the head of the list. The cut operator (!) prevents further backtracking once X is found.
+member(X, [_ | Ys]) :- member(X, Ys). % If X is not the head, we recursively check the rest of the list (Ys). Recurse on tail.
 
-% Suggests possible friends to X by checking mutual friends.
-people_you_may_know(X, Y) :-
-    is_friend(X, Z),      % Find a mutual friend Z.
-    is_friend(Z, Y),      % Z is also friends with Y.
-    \+(X=Y),              % Ensure X and Y are not the same person.
-    \+is_friend(X, Y).    % Ensure X and Y are not already friends.
+%=========================================%
+% TASK 3: Friend Count (Tail Recursion)   %
+%=========================================%
+% This predicate counts friends using tail recursion for efficiency.
+friendListCount(X, N) :-
+    friendList(X, Friends),   % Get friend list first.
+    countTail(Friends, 0, N). % Count using tail recursion.
 
-% Concatenates lists of friends of friends.
-concatenate_friend_lists([], []).  % Base case: If the input list is empty, return an empty list.
-% Recursively get the friend list for each person and concatenate.
-concatenate_friend_lists([X | Xs], [Y | Ys]) :-
-    friend_list(X, Y),                % Get the friend list for person X.
-    concatenate_friend_lists(Xs, Ys).  % Continue with the rest of the list.
+% Base case: Accumulator holds the final count.
+countTail([], Acc, Acc).      % Returns accumulated count.
 
-% Appends two lists.
-my_append([], Ys, Ys).  % Base case: If the first list is empty, return the second list.
-my_append([X | Xs], Ys, [X | Zs]) :- 
-    my_append(Xs, Ys, Zs).  % Recursively append elements of the first list to the second.
+% Recursive case: Increment accumulator for each friend.
+countTail([_ | T], Acc, N) :-
+    Acc1 is Acc + 1,          % Increment counter.
+    countTail(T, Acc1, N).    % Tail-recursive call
 
-% Flattens a list of lists into a single list.
-my_flatten([], []).  % Base case: If the input is an empty list, return an empty list.
-my_flatten([X | Xs], Ys) :-
-    my_flatten(Xs, Zs),  % Recursively flatten the rest of the list.
-    my_append(X, Zs, Ys).  % Append the flattened list to the result.
+%=========================================%
+% TASK 4: Suggest Friends with Mutuals    %
+%=========================================%
+%  This predicate suggests Z to X if X and Z share at least one mutual friend (Y).
+peopleYouMayKnow(X, Z) :-
+    is_friend(X, Y),          % X is friends with Y.
+    is_friend(Y, Z),          % Y is friends with Z.
+    X \= Z,                   % Ensure Z is not X.
+    \+ is_friend(X, Z).       % Ensure Z is not already a friend of X.
 
-% Removes duplicates from a list.
-remove_duplicates([X | Xs], Ys) :-
-    my_member(X, Xs),    % If X appears later in the list, skip it.
-    !,
-    remove_duplicates(Xs, Ys).
-remove_duplicates([X | Xs], [X | Ys]) :-
-    \+my_member(X, Xs),  % If X is not a duplicate, keep it.
-    remove_duplicates(Xs, Ys).
-remove_duplicates([], []).  % Base case: If the list is empty, return an empty list.
+%=========================================%
+% TASK 5: N Mutual Friends Suggestion     %
+%=========================================%
+%  This predicate suggests Z to X if X and Z have at least N mutual friends.
+peopleYouMayKnow(X, N, Z) :-
+    peopleYouMayKnow(X, Z),    % Z is a candidate (as in Task 4).
+    countMutuals(X, Z, Count), % Count mutual friends.
+    Count >= N,                % Check if count meets threshold.
+    !.
 
-% Removes direct friends and the person themselves from a list.
-remove_friends_and_self(X, [Y | Ys], [Y | Zs]) :-
-    \+is_friend(X, Y),   % If Y is not a friend of X and Y is not X themselves, keep it.
-    \+(X = Y),
-    !,
-    remove_friends_and_self(X, Ys, Zs).  % Continue with the rest of the list.
-remove_friends_and_self(X, [_ | Ys], Zs) :- 
-    !,
-    remove_friends_and_self(X, Ys, Zs).  % Skip friends.
-remove_friends_and_self(_, [], []).  % Base case: If the list is empty, return an empty list.
+% Count mutual friends between X and Z.
+countMutuals(X, Z, Count) :-
+    countMutualsHelper(X, Z, [], 0, Count).
 
-% Counts how many times X appears in a list.
-count_occurrences(_, [], Acc, Acc).  % Base case: When the list is empty, return the count.
-count_occurrences(X, [X | Xs], Acc, N) :-
-    Accp is Acc + 1,
-    count_occurrences(X, Xs, Accp, N).  % Increment the count if X is found.
-count_occurrences(X, [_ | Xs], Acc, N) :-
-    count_occurrences(X, Xs, Acc, N).  % Skip elements that are not X.
-count_occurrences(X, Xs, N) :- count_occurrences(X, Xs, 0, N).  % Public version.
+% Helper predicate with Seen list to track counted friends
+countMutualsHelper(X, Z, Seen, Acc, Count) :-
+    is_friend(X, Y),          % Find a mutual friend Y
+    is_friend(Y, Z),
+    \+ member(Y, Seen),       % Ensure Y hasn't been counted
+    !,                        % Cut to commit to this Y
+    NewAcc is Acc + 1,
+    countMutualsHelper(X, Z, [Y | Seen], NewAcc, Count).
 
-% Finds friends of friends for a given person.
-friends_of_friends(X, Ns) :-
-    friend_list(X, Xs),              % Get the friend list of X.
-    concatenate_friend_lists(Xs, Ys), % Get the friend lists of X's friends.
-    my_flatten(Ys, Zs),              % Flatten the list of lists into a single list.
-    remove_friends_and_self(X, Zs, Ns).  % Remove X's direct friends and X from the list.
+countMutualsHelper(_, _, _, Count, Count).  % Base case returns accumulated count
 
-% Suggests friends with at least N mutual friends.
-people_you_may_know(X, N, Y) :-
-    friends_of_friends(X, Xs),       % Get friends of friends.
-    count_occurrences(Y, Xs, N),     % Check if Y appears at least N times.
-    !.  % Only return one result, as required.
+%=========================================%
+% TASK 6: Unique Suggested Friends List   %
+%=========================================%
+% This predicate generates a list of all unique suggested friends for a given person X using an accumulator (Acc).
+% - Uses an accumulator (Acc) to track friends and ensure uniqueness.
+% - Clause order and cuts ensure a single solution with the full list.
+peopleYouMayKnowList(X, SuggestedFriends) :- collectUnique(X, [], SuggestedFriends).  % Start with empty accumulator.
 
-% Lists all possible friends with at least one mutual friend.
-people_you_may_know_list(X, Xs) :-
-    friends_of_friends(X, Ys),       % Get friends of friends.
-    remove_duplicates(Ys, Xs).       % Remove duplicates from the result.
+% Recursive helper predicate:
+% - Recursive clause is first, so Prolog prioritizes finding friends over returning results.
+% - Aggressively accumulates unique suggested friends into Acc until no more are found.
+collectUnique(X, Acc, SuggestedFriends) :-
+    peopleYouMayKnow(X, Z),   % Find a suggestion.
+    \+ member(Z, Acc),        % Check if Z is NOT in the accumulator to avoid duplicates.
+    !,                        % Cut: Prevent backtracking to keep Z unique (Prevent further attempts to find Z again).
+    collectUnique(X, [Z | Acc], SuggestedFriends).  % Recurse with the updated Acc.
 
-% Checks if a suggestion is applicable for indirect connections.
-indirect_applicable(X, Acc, Y) :-
-    \+my_member(Y, Acc),            % Ensure Y is not already in the accumulator.
-    \+(is_friend(X, Y)),            % Ensure Y is not already a friend.
-    \+(X=Y),                        % Ensure Y is not X themselves.
-    \+people_you_may_know(X, Y).    % Ensure Y is not suggested by direct mutual friends.
+% Base case:
+% - Only reached when no more suggested friends can be found (due to cut in recursive clause).
+% - Unifies the final accumulated list (SuggestedFriends) with the result.
+collectUnique(_, SuggestedFriends, SuggestedFriends).
 
-% Suggests friends via indirect connections (friend of a friend of a friend).
-people_you_may_know_indirect(X, Acc, Y) :-
-    is_friend(X, Z),                % Find a friend Z of X.
-    is_friend(Z, W),                % Find a friend W of Z.
-    is_friend(W, Y),                % Find a friend Y of W.
-    indirect_applicable(X, Acc, Y).  % Ensure Y is applicable for suggestion.
+%=========================================%
+% BONUS: Indirect Friend Suggestions      %
+%=========================================%
+% % This predicate suggests W if connected via a chain (X->Y->Z->W) with no direct mutuals.
+peopleYouMayKnow_indirect(X, W) :-
+    is_friend(X, Y),          % Check if X is friends with Y.
+    is_friend(Y, Z),          % Check if Y is friends with Z.
+    is_friend(Z, W),          % Check if Z is friends with W.
+    X \= W,                   % Ensure W is not X.
+    \+ is_friend(X, W),       % W is not already a friend.
+    \+ hasMutual(X, W).       % No direct mutual friends.
 
-people_you_may_know_indirect(X, Y) :- people_you_may_know_indirect(X, [], Y).
+% Check if X and W have any mutual friends.
+hasMutual(X, W) :-
+    is_friend(X, Y),          % Check if X is friends with Y.
+    is_friend(Y, W).          % Check if Y is friends with W.
